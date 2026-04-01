@@ -1,0 +1,7 @@
+uploads/
+outputs/
+__pycache__/
+*.pyc
+*.xlsb
+*.xlsx
+.env

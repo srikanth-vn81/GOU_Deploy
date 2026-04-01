@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GOU Report Processor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: #ffffff;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 620px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      padding: 1.5rem;
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: .4rem;
+    }
+
+    .card-desc {
+      font-size: 12px;
+      color: #bbb;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 1rem;
+    }
+
+    /* DROP ZONE */
+    .drop-zone {
+      border: 1.5px dashed #d0d0d0;
+      border-radius: 8px;
+      padding: 2rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      background: #fafafa;
+    }
+    .drop-zone:hover, .drop-zone.over { border-color: #1a1a1a; background: #f5f5f5; }
+    .drop-zone.loaded { border-color: #1a7a50; border-style: solid; background: #f0faf5; }
+
+    .drop-icon {
+      width: 44px; height: 44px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto .75rem;
+    }
+    .drop-icon svg { width: 20px; height: 20px; stroke: #999; transition: stroke .2s; }
+    .drop-zone:hover .drop-icon svg, .drop-zone.over .drop-icon svg { stroke: #1a1a1a; }
+    .drop-zone.loaded .drop-icon svg { stroke: #1a7a50; }
+
+    .drop-title { font-size: 14px; font-weight: 500; color: #1a1a1a; margin-bottom: 3px; }
+    .drop-sub   { font-size: 12px; color: #999; font-family: 'JetBrains Mono', monospace; }
+    .drop-file  { font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #1a7a50; margin-top: .6rem; }
+
+    #fileInput { display: none; }
+
+    .fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 1rem;
+    }
+
+    .field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 5px;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 9px 12px;
+      background: #fafafa;
+      border: 1px solid #e5e5e5;
+      border-radius: 7px;
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #1a1a1a;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .field input:focus { border-color: #1a1a1a; background: #fff; }
+
+    .btn-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .btn-black {
+      padding: .55rem 1.5rem;
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: background .15s, opacity .2s;
+    }
+    .btn-black:hover:not(:disabled) { background: #333; }
+    .btn-black:active:not(:disabled) { transform: scale(.98); }
+    .btn-black:disabled { opacity: .35; cursor: not-allowed; }
+
+    .btn-green {
+      padding: .55rem 1.5rem;
+      background: #fff;
+      color: #1a7a50;
+      border: 1.5px solid #b8deca;
+      border-radius: 7px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      gap: 7px;
+      transition: all .2s;
+    }
+    .btn-green:hover { background: #f0faf5; border-color: #1a7a50; }
+    .btn-green.show  { display: flex; }
+
+    .spinner {
+      width: 13px; height: 13px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .65s linear infinite;
+      display: none;
+    }
+    .loading .spinner  { display: block; }
+    .loading .btn-text { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .result-msg {
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: .75rem;
+      padding: .6rem .9rem;
+      border-radius: 7px;
+      display: none;
+      word-break: break-all;
+    }
+    .result-msg.ok    { background: #f0faf5; color: #1a7a50; border: 1px solid #b8deca; display: block; }
+    .result-msg.error { background: #fdf2f2; color: #c0392b; border: 1px solid #f5c6c6; display: block; }
+
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ── CARD 1: GOU REPORT PROCESSOR ── -->
+  <div class="card">
+    <div class="card-label">GOU Report Processor</div>
+    <div class="card-desc">input: .xlsb / .xlsx &nbsp;→&nbsp; output: GOU_output.xlsx</div>
+
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="drop-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <div class="drop-title">Click to browse or drag & drop</div>
+      <div class="drop-sub">.xlsb &nbsp;/&nbsp; .xlsx</div>
+      <div class="drop-file" id="dropFilename"></div>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsb,.xlsx"/>
+
+    <div class="fields">
+      <div class="field">
+        <label>Sheet Name</label>
+        <input type="text" id="sheetName" value="Client List"/>
+      </div>
+      <div class="field">
+        <label>Skip Rows</label>
+        <input type="number" id="skipRows" value="1" min="0"/>
+      </div>
+      <div class="field">
+        <label>Output Filename</label>
+        <input type="text" id="outName" value="GOU_output.xlsx"/>
+      </div>
+      <div class="field">
+        <label>Output Sheet Name</label>
+        <input type="text" id="outSheet" value="Client List"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-green" id="downloadBtn" onclick="downloadFile()">
+      ⬇ &nbsp;Download
+    </button>
+    <button class="btn-black" id="processBtn" onclick="processFile()" disabled>
+      <div class="spinner"></div>
+      <span class="btn-text">Process File</span>
+    </button>
+  </div>
+
+  <!-- ── CARD 2: HC PIE ── -->
+  <div class="card">
+    <div class="card-label">HC Pie</div>
+    <div class="card-desc">input: GOU_final.xlsx &nbsp;→&nbsp; output: hc_pie.xlsx &nbsp;(Req HC sum by Staffing Category)</div>
+    <div class="btn-row">
+      <button class="btn-green" id="dlHcBtn" onclick="downloadHc()">
+        ⬇ &nbsp;Download
+      </button>
+      <button class="btn-black" id="hcBtn" onclick="runHcPie()">
+        <div class="spinner"></div>
+        <span class="btn-text">Run</span>
+      </button>
+    </div>
+    <div class="result-msg" id="hcMsg"></div>
+  </div>
+
+  <!-- ── CARD 3: LOB PIE ── -->
+  <div class="card">
+    <div class="card-label">LOB Pie</div>
+    <div class="card-desc">input: GOU_final.xlsx &nbsp;→&nbsp; output: lob_pie.xlsx &nbsp;(count by Staffing Category)</div>
+    <div class="btn-row">
+      <button class="btn-green" id="dlLobBtn" onclick="downloadLob()">
+        ⬇ &nbsp;Download
+      </button>
+      <button class="btn-black" id="lobBtn" onclick="runLobPie()">
+        <div class="spinner"></div>
+        <span class="btn-text">Run</span>
+      </button>
+    </div>
+    <div class="result-msg" id="lobMsg"></div>
+  </div>
+
+</div>
+
+
+<script>
+
+  // ── CARD 1: GOU PROCESSOR ─────────────────────────
+  var dropZone     = document.getElementById('dropZone');
+  var fileInput    = document.getElementById('fileInput');
+  var processBtn   = document.getElementById('processBtn');
+  var downloadBtn  = document.getElementById('downloadBtn');
+  var dropFilename = document.getElementById('dropFilename');
+  var selectedFile   = null;
+  var outputFilename = null;
+
+  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('over'); });
+  dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('over'); });
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault(); dropZone.classList.remove('over');
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', function() {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  function setFile(file) {
+    selectedFile = file;
+    dropZone.classList.add('loaded');
+    var kb = file.size > 1048576 ? (file.size/1048576).toFixed(1)+' MB' : (file.size/1024).toFixed(0)+' KB';
+    dropFilename.textContent = '✓  ' + file.name + '  (' + kb + ')';
+    processBtn.disabled = false;
+    downloadBtn.classList.remove('show');
+    outputFilename = null;
+  }
+
+  function processFile() {
+    if (!selectedFile) return;
+    processBtn.disabled = true;
+    processBtn.classList.add('loading');
+    downloadBtn.classList.remove('show');
+    outputFilename = null;
+
+    var fd = new FormData();
+    fd.append('file',       selectedFile);
+    fd.append('sheet_name', document.getElementById('sheetName').value);
+    fd.append('skip_rows',  document.getElementById('skipRows').value);
+    fd.append('out_name',   document.getElementById('outName').value);
+    fd.append('out_sheet',  document.getElementById('outSheet').value);
+
+    fetch('/process', { method: 'POST', body: fd })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.success) {
+          outputFilename = data.output_file;
+          downloadBtn.classList.add('show');
+        } else {
+          alert('Something went wrong. Please try again.');
+        }
+      })
+      .catch(function() {
+        alert('❌ Cannot reach Flask server. Run: python app.py');
+      })
+      .finally(function() {
+        processBtn.disabled = false;
+        processBtn.classList.remove('loading');
+      });
+  }
+
+  function downloadFile() {
+    if (!outputFilename) return;
+    var a = document.createElement('a');
+    a.href = '/download/' + encodeURIComponent(outputFilename);
+    a.download = outputFilename;
+    a.click();
+  }
+
+  // ── CARD 2: HC PIE ───────────────────────────────
+  function runHcPie() {
+    var btn   = document.getElementById('hcBtn');
+    var msg   = document.getElementById('hcMsg');
+    var dlBtn = document.getElementById('dlHcBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+    msg.className = 'result-msg';
+    msg.style.display = 'none';
+    dlBtn.classList.remove('show');
+
+    fetch('/run-hc-pie', { method: 'POST' })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        msg.className = 'result-msg ' + (data.success ? 'ok' : 'error');
+        msg.textContent = data.msg;
+        if (data.success) dlBtn.classList.add('show');
+      })
+      .catch(function() {
+        msg.className = 'result-msg error';
+        msg.textContent = '❌ Cannot reach Flask server. Run: python app.py';
+      })
+      .finally(function() {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      });
+  }
+
+  function downloadHc() {
+    var a = document.createElement('a');
+    a.href = '/download-path?path=' + encodeURIComponent('C:\\GOU\\hc_pie.xlsx');
+    a.click();
+  }
+
+  // ── CARD 3: LOB PIE ──────────────────────────────
+  function runLobPie() {
+    var btn   = document.getElementById('lobBtn');
+    var msg   = document.getElementById('lobMsg');
+    var dlBtn = document.getElementById('dlLobBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+    msg.className = 'result-msg';
+    msg.style.display = 'none';
+    dlBtn.classList.remove('show');
+
+    fetch('/run-lob-pie', { method: 'POST' })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        msg.className = 'result-msg ' + (data.success ? 'ok' : 'error');
+        msg.textContent = data.msg;
+        if (data.success) dlBtn.classList.add('show');
+      })
+      .catch(function() {
+        msg.className = 'result-msg error';
+        msg.textContent = '❌ Cannot reach Flask server. Run: python app.py';
+      })
+      .finally(function() {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      });
+  }
+
+  function downloadLob() {
+    var a = document.createElement('a');
+    a.href = '/download-path?path=' + encodeURIComponent('C:\\GOU\\lob_pie.xlsx');
+    a.click();
+  }
+
+</script>
+</body>
+</html>
